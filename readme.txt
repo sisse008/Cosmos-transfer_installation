@@ -1,12 +1,21 @@
 
 
-running script.py will setup the needed environment for running inference cosmos-transfer1. NOT TRAINING!
 
-need to first create a hugging face access token with read permission @ https://huggingface.co/settings/tokens.
 
-The model weights (downloaded from huggingface) require about 300GB of free storage. Not all checkpoints will be used in every generation.
+https://docs.nvidia.com/cosmos/latest/transfer/installation.html
 
-in order to test run, need to first download the mp4 file from https://docs.nvidia.com/cosmos/latest/_static/transfer1-edge-detect.mp4 and place in folder "assets"
+- clone cosmos-transfer repository
+- create environment
+- install dependencies
+
+
+-running script.py will setup the needed environment for running inference cosmos-transfer1. NOT TRAINING!
+
+-need to first create a hugging face access token with read permission @ https://huggingface.co/settings/tokens.
+
+-The model weights (downloaded from huggingface) require about 300GB of free storage. Not all checkpoints will be used in every generation.
+
+-in order to test run, need to first download the mp4 file from https://docs.nvidia.com/cosmos/latest/_static/transfer1-edge-detect.mp4 and place in folder "assets"
 
 
 system requirements:
