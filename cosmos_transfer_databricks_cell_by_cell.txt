@@ -1,0 +1,217 @@
+
+
+# installation() - CELLS 1 THROUGH 6
+
+
+
+##########CELL 0##################################################################
+#python - set hugging face read token as an environment variable (so %sh can read it)
+
+import os, json
+os.environ["HUGGINGFACE_TOKEN"] = "hf_your_real_token_here"
+
+######################################## CELL 0 #####################################
+
+
+##########CELL 1 - STEP0: save shared variables#########################################################
+##########Every %sh cell is a new shell. Sourcing cosmos_vars.SH in each cell keeps variables consistent.
+
+
+%sh
+cat <<'EOF' >/tmp/cosmos_vars.sh
+# --------- STEP 0 – VARIABLES ---------
+REPO_URL="https://github.com/nvidia-cosmos/cosmos-transfer1.git"
+ENV_NAME="cosmos-transfer1"
+MINICONDA_DIR="/databricks/conda"
+CHECKPOINT_DIR="/dbfs/ml/cosmos_ckpt"
+VIDEO_URL="https://docs.nvidia.com/cosmos/latest/_static/transfer1-edge-detect.mp4"
+VIDEO_FILE="assets/transfer1-edge-detect.mp4"
+HF_TOKEN="${HUGGINGFACE_TOKEN:-<PUT‑YOUR‑TOKEN‑HERE>}"
+EOF
+echo "✅  Variables saved to /tmp/cosmos_vars.sh"
+
+
+######################################## CELL 1 #####################################
+
+
+
+#########CELL2 - STEP1: install / load Miniconda #####################################
+
+
+%sh
+source /tmp/cosmos_vars.sh
+
+if [ ! -d "$MINICONDA_DIR" ]; then
+  echo "➡️  Installing Miniconda at $MINICONDA_DIR …"
+  wget -qO /tmp/miniconda.sh \
+       https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+  bash /tmp/miniconda.sh -b -p "$MINICONDA_DIR"
+else
+  echo "🔄  Miniconda already present."
+fi
+source "$MINICONDA_DIR/etc/profile.d/conda.sh"
+echo "✅  Miniconda ready."
+######################################## CELL 2 #####################################
+
+
+########CELL 3 - STEP2: clone (or refresh) the repo##################################
+
+
+%sh
+source /tmp/cosmos_vars.sh
+if [ ! -d cosmos-transfer1 ]; then
+  echo "➡️  Cloning repo …"
+  git clone "$REPO_URL"
+else
+  echo "🔄  Repo exists – pulling latest …"
+  ( cd cosmos-transfer1 && git pull )
+fi
+cd cosmos-transfer1
+git submodule update --init --recursive
+echo "✅  Repo ready."
+########################################### CELL 3 #####################################
+
+
+
+############CELL 4 - STEP3: create the Conda environment################################
+
+%sh
+source /tmp/cosmos_vars.sh
+source "$MINICONDA_DIR/etc/profile.d/conda.sh"
+if ! conda info --envs | grep -q "$ENV_NAME"; then
+  echo "➡️  Creating Conda env $ENV_NAME … (may take a while)"
+  conda env create -f cosmos-transfer1.yaml -n "$ENV_NAME"
+else
+  echo "🔄  Env $ENV_NAME already exists."
+fi
+echo "✅  Env step done."
+
+
+####################################### CELL 4 ###########################################
+
+
+############CELL 5 - STEP4: install Python dependencies################################
+
+%sh
+source /tmp/cosmos_vars.sh
+source "$MINICONDA_DIR/etc/profile.d/conda.sh"
+echo "➡️  Installing Python deps …"
+conda run -n "$ENV_NAME" pip install -r cosmos-transfer1/requirements.txt
+conda run -n "$ENV_NAME" pip install 'transformer-engine[pytorch]==1.12.0'
+
+# --- patch include paths (ignore errors) ---
+CONDA_PREFIX="$MINICONDA_DIR/envs/$ENV_NAME"
+ln -sf $CONDA_PREFIX/lib/python*/site-packages/nvidia/*/include/* \
+      $CONDA_PREFIX/include/               2>/dev/null || true
+ln -sf $CONDA_PREFIX/lib/python*/site-packages/nvidia/*/include/* \
+      $CONDA_PREFIX/include/python*        2>/dev/null || true
+echo "✅  Dependencies installed."
+
+
+#################################### CELL 5 ##########################################
+
+
+##################################CELL 6 - STEP 5: validate the environment############
+
+%sh
+source /tmp/cosmos_vars.sh
+source "$MINICONDA_DIR/etc/profile.d/conda.sh"
+echo "➡️  Installing Python deps …"
+conda run -n "$ENV_NAME" pip install -r cosmos-transfer1/requirements.txt
+conda run -n "$ENV_NAME" pip install 'transformer-engine[pytorch]==1.12.0'
+
+# --- patch include paths (ignore errors) ---
+CONDA_PREFIX="$MINICONDA_DIR/envs/$ENV_NAME"
+ln -sf $CONDA_PREFIX/lib/python*/site-packages/nvidia/*/include/* \
+      $CONDA_PREFIX/include/               2>/dev/null || true
+ln -sf $CONDA_PREFIX/lib/python*/site-packages/nvidia/*/include/* \
+      $CONDA_PREFIX/include/python*        2>/dev/null || true
+echo "✅  Dependencies installed."
+
+###################################### CELL 6 #############################################
+
+
+
+# quickstart() - CELLS 7 AND 8
+
+################################ CELL 7 - STEP6: HuggingFace non‑interactive login############################
+
+%sh
+source /tmp/cosmos_vars.sh
+source "$MINICONDA_DIR/etc/profile.d/conda.sh"
+
+if [[ "$HF_TOKEN" == "<PUT‑YOUR‑TOKEN‑HERE>" ]]; then
+  echo "❌  Edit /tmp/cosmos_vars.sh (HF_TOKEN) before running STEP8."
+  exit 1
+fi
+
+echo "$HF_TOKEN" | conda run -n "$ENV_NAME" \
+  huggingface-cli login --token "$HF_TOKEN" --stdin
+echo "✅  HuggingFace login stored."
+
+
+#################################################CELL 7 ######################################################
+
+
+
+# generate_visual_simulation_from_video_source -
+
+########################### CELL 8 - STEP 7: download the diffusion checkpoints (~300 GB) ##################
+
+
+%sh
+source /tmp/cosmos_vars.sh
+source "$MINICONDA_DIR/etc/profile.d/conda.sh"
+cd cosmos-transfer1
+mkdir -p "$CHECKPOINT_DIR"
+
+echo "⬇️  Downloading checkpoints to $CHECKPOINT_DIR … (can take hours)"
+conda run -n "$ENV_NAME" \
+  CUDA_HOME="$MINICONDA_DIR/envs/$ENV_NAME" PYTHONPATH=$(pwd) \
+  python scripts/download_diffusion_checkpoints.py \
+    --checkpoint_dir "$CHECKPOINT_DIR" \
+    --model_sizes 7B --model_types Text2World
+echo "✅  Checkpoints ready."
+
+
+########################################################## CELL 8 ##########################################
+
+generate_visual_simulation_from_video_source() - CELLS 9 AND 10
+
+#download the mp4 file from https://docs.nvidia.com/cosmos/latest/_static/transfer1-edge-detect.mp4 and place in folder "assets"
+############################## CELL9 — STEP8: download the demo video if needed #########################
+
+%sh
+source /tmp/cosmos_vars.sh
+cd cosmos-transfer1
+mkdir -p assets
+if [ ! -f "$VIDEO_FILE" ]; then
+  echo "⬇️  Downloading demo video …"
+  curl -L "$VIDEO_URL" -o "$VIDEO_FILE"
+else
+  echo "🎬  Video already present."
+fi
+echo "✅  Video step done."
+
+###################################### CELL 9 #####################################################
+
+
+
+########################## CELL10 - STEP9: generate the visual simulation ############################
+
+%sh
+source /tmp/cosmos_vars.sh
+source "$MINICONDA_DIR/etc/profile.d/conda.sh"
+cd cosmos-transfer1
+export CUDA_VISIBLE_DEVICES=0
+conda run -n "$ENV_NAME" \
+  CUDA_HOME="$MINICONDA_DIR/envs/$ENV_NAME" PYTHONPATH=$(pwd) \
+  python cosmos_transfer1/diffusion/inference/transfer.py \
+    --checkpoint_dir "$CHECKPOINT_DIR" \
+    --video_save_folder outputs/example1_single_control_edge \
+    --controlnet_specs assets/inference_cosmos_transfer1_single_control_edge.json \
+    --offload_text_encoder_model
+echo "✅  Demo output → cosmos-transfer1/outputs/example1_single_control_edge"
+
+
+############################################# CELL 10 ######################################################
